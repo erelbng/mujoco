@@ -15,6 +15,7 @@
 #include <mujoco/mjplugin.h>
 #include "bolt.h"
 #include "bowl.h"
+#include "eflesh.h"
 #include "gear.h"
 #include "nut.h"
 #include "torus.h"
@@ -24,6 +25,7 @@ namespace mujoco::plugin::sdf {
 mjPLUGIN_LIB_INIT(sdf) {
   Bolt::RegisterPlugin();
   Bowl::RegisterPlugin();
+  EFlesh::RegisterPlugin();
   Gear::RegisterPlugin();
   Nut::RegisterPlugin();
   Torus::RegisterPlugin();

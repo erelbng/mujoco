@@ -1,0 +1,54 @@
+<mujoco model="eflesh test">
+  <extension>
+    <plugin plugin="mujoco.sdf.eflesh">
+      <instance name="eflesh_large">
+        <config key="size_x" value="0.4"/>
+        <config key="size_y" value="0.4"/>
+        <config key="size_z" value="0.1"/>
+      </instance>
+      <instance name="eflesh_small">
+        <config key="size_x" value="0.1"/>
+        <config key="size_y" value="0.1"/>
+        <config key="size_z" value="0.1"/>
+      </instance>
+    </plugin>
+  </extension>
+
+  <asset>
+    <mesh name="mesh_large">
+      <plugin instance="eflesh_large"/>
+    </mesh>
+    <mesh name="mesh_small">
+      <plugin instance="eflesh_small"/>
+    </mesh>
+    <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4" width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
+    <material name="grid" texture="grid" texrepeat="2 2" texuniform="true"/>
+  </asset>
+
+  <option timestep="0.005" iterations="50" solver="Newton" tolerance="1e-10"/>
+
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="2 2 .05" material="grid"/>
+    
+    <body name="box_large" pos="0 0 0.2">
+      <freejoint/>
+      <geom type="sdf" mesh="mesh_large" rgba=".8 .2 .2 1">
+        <plugin instance="eflesh_large"/>
+      </geom>
+    </body>
+
+    <body name="box_small" pos="0 0 1.5">
+      <freejoint/>
+      <geom type="sdf" mesh="mesh_small" rgba=".2 .8 .2 1">
+        <plugin instance="eflesh_small"/>
+      </geom>
+    </body>
+
+    <!-- Standard MuJoCo sphere to test interaction -->
+    <body name="sphere" pos="0 0 1.0">
+      <freejoint/>
+      <geom type="sphere" size="0.1" rgba=".2 .2 .8 1"/>
+    </body>
+  </worldbody>
+</mujoco>

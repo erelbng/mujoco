@@ -1,0 +1,171 @@
+#+TITLE: MuJoCo Plugin Tutorial
+#+AUTHOR: Eric Plaß
+#+DESCRIPTION: A step-by-step guide to creating, registering, and building MuJoCo plugins.
+
+* Introduction
+MuJoCo's plugin system allows you to extend the engine's capabilities with custom actuators, sensors, passive forces, and Signed Distance Fields (SDFs). This tutorial uses a box-shaped SDF as a reference example.
+
+* 1. Plugin Structure
+A typical plugin consists of a header file and a C++ implementation file.
+
+- Recommended Location: ~plugin/<category>/~ (e.g., ~plugin/sdf/~ or ~plugin/sensor/~)
+
+*** Header File (~myplugin.h~)
+Define your plugin class and attributes. For SDFs, you must define the ~nattribute~, ~names~, and ~defaults~.
+
+#+BEGIN_SRC cpp
+namespace mujoco::plugin::sdf {
+struct MyPluginAttribute {
+  static constexpr int nattribute = 3;
+  static constexpr char const* names[nattribute] = {"attr1", "attr2", "attr3"};
+  static constexpr mjtNum defaults[nattribute] = {0.1, 0.1, 0.1};
+};
+
+class MyPlugin {
+ public:
+  static void RegisterPlugin();
+  // ... SDF methods: Distance, Gradient, etc.
+};
+}
+#+END_SRC
+
+*** Implementation File (~myplugin.cc~)
+Implement the logic and the ~RegisterPlugin~ function.
+
+* 2. Registering the Plugin
+MuJoCo needs to be told about your new plugin during initialization.
+
+*** Step A: Implement ~RegisterPlugin~
+In your ~.cc~ file, fill a ~mjpPlugin~ structure and call ~mjp_registerPlugin~.
+
+#+BEGIN_SRC cpp
+void MyPlugin::RegisterPlugin() {
+  mjpPlugin plugin;
+  mjp_defaultPlugin(&plugin);
+
+  plugin.name = "mujoco.sdf.myplugin";
+  plugin.capabilityflags |= mjPLUGIN_SDF;
+  
+  // Assign function pointers (init, destroy, reset, compute, etc.)
+  plugin.init = +[](const mjModel* m, mjData* d, int instance) { ... };
+  
+  mjp_registerPlugin(&plugin);
+}
+#+END_SRC
+
+*** Step B: Update Library Initialization
+If you are adding to an existing library (like the ~sdf~ library), update the ~register.cc~ file in that directory.
+
+File: ~plugin/sdf/register.cc~
+#+BEGIN_SRC cpp
+#include "myplugin.h"
+
+mjPLUGIN_LIB_INIT(sdf) {
+  // ... existing registrations
+  MyPlugin::RegisterPlugin();
+}
+#+END_SRC
+
+* 3. Build Configuration
+Add your new files to the relevant ~CMakeLists.txt~.
+
+File: ~plugin/sdf/CMakeLists.txt~
+#+BEGIN_SRC cmake
+set(MUJOCO_SDF_SRCS
+    ...
+    myplugin.cc
+    myplugin.h
+)
+#+END_SRC
+
+* 4. Compilation
+Rebuild MuJoCo using CMake.
+
+#+BEGIN_SRC bash
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+#+END_SRC
+
+This will produce a shared library (e.g., ~libsdf_plugin.so~ on Linux) in ~build/lib/~.
+
+* 5. Testing and Loading
+MuJoCo looks for plugins in a specific directory relative to the executable or via an environment variable.
+
+*** Loading via ~simulate~
+The ~simulate~ viewer automatically scans a sub-folder named ~mujoco_plugin~ next to its binary.
+
+1. Create the directory: ~mkdir -p build/bin/mujoco_plugin~
+2. Copy your plugin: ~cp build/lib/libsdf_plugin.so build/bin/mujoco_plugin/~
+3. Run: ~./build/bin/simulate my_model.xml~
+
+*** Loading via Environment Variable
+You can also specify the path manually:
+#+BEGIN_SRC bash
+export MUJOCO_PLUGIN_PATH=/path/to/your/plugin/dir
+./build/bin/simulate my_model.xml
+#+END_SRC
+
+* 6. Using the Plugin in XML
+Reference your plugin in the ~<extension>~ section and use it in geoms/actuators.
+
+#+BEGIN_SRC xml
+<mujoco>
+  <extension>
+    <plugin plugin="mujoco.sdf.myplugin">
+      <instance name="inst1">
+        <config key="attr1" value="0.5"/>
+      </instance>
+    </plugin>
+  </extension>
+
+  <worldbody>
+    <geom type="sdf" mesh="my_mesh">
+      <plugin instance="inst1"/>
+    </geom>
+  </worldbody>
+</mujoco>
+#+END_SRC
+
+* 7. Using Plugins in Python
+You do not need to rebuild the ~mujoco~ Python package to use your custom plugin. The standard ~mujoco~ package (installed via pip) can load external plugins at runtime.
+
+** Method A: Environment Variable (Recommended)
+Simply point the ~MUJOCO_PLUGIN_PATH~ to the directory containing your compiled library.
+
+#+BEGIN_SRC bash
+export MUJOCO_PLUGIN_PATH=/path/to/mujoco/build/lib
+python3 -c "import mujoco; m = mujoco.MjModel.from_xml_path('my_model.xml')"
+#+END_SRC
+
+** Method B: Programmatic Loading
+You can also load the plugin library directly within your Python script.
+
+#+BEGIN_SRC python
+import mujoco
+import os
+
+# Path to your compiled plugin library
+plugin_lib = "/path/to/mujoco/build/lib/libsdf_plugin.so"
+mujoco.mj_loadPluginLibrary(plugin_lib)
+
+# Now you can load models that use the plugin
+model = mujoco.MjModel.from_xml_path("my_model.xml")
+#+END_SRC
+
+* 8. Building MuJoCo Python Bindings from Source
+If you have modified MuJoCo's core engine or want to bundle the plugin into a custom build:
+
+1. Build MuJoCo from source as described in section 4.
+2. Set the necessary environment variables for the Python installer:
+   #+BEGIN_SRC bash
+   export MUJOCO_PATH=/path/to/mujoco_install_dir
+   export MUJOCO_PLUGIN_PATH=${MUJOCO_PATH}/bin/mujoco_plugin
+   #+END_SRC
+3. Install the bindings:
+   #+BEGIN_SRC bash
+   cd python
+   pip install .
+   #+END_SRC
+
+Note: The ~setup.py~ script in the ~python/~ directory will look for the MuJoCo headers and libraries in ~MUJOCO_PATH~ and copy the plugins from ~MUJOCO_PLUGIN_PATH~ into the package.

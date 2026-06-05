@@ -23,6 +23,8 @@ set(MUJOCO_SDF_SRCS
     bolt.h
     bowl.cc
     bowl.h
+    eflesh.cc
+    eflesh.h
     gear.cc
     gear.h
     register.cc
