@@ -1,0 +1,79 @@
+<mujoco model="eflesh sensor test">
+  <compiler autolimits="true"/>
+
+  <extension>
+    <!-- A single eFlesh plugin instance provides BOTH the signed-distance
+         shape (for collisions) and the tactile sensor. The same instance is
+         referenced below by the <mesh>/<geom> and by the <sensor>. -->
+    <plugin plugin="mujoco.sdf.eflesh">
+      <instance name="flesh">
+        <config key="size_x" value="0.15"/>
+        <config key="size_y" value="0.15"/>
+        <config key="size_z" value="0.04"/>
+        <config key="e_module" value="2000"/>
+        <config key="nx" value="8"/>
+        <config key="ny" value="8"/>
+        <config key="viz" value="1"/>   <!-- 1 = always show taxels + arrows -->
+      </instance>
+    </plugin>
+  </extension>
+
+  <asset>
+    <mesh name="flesh">
+      <plugin instance="flesh"/>
+    </mesh>
+    <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4"
+             width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
+    <material name="grid" texture="grid" texrepeat="2 2" texuniform="true"/>
+  </asset>
+
+  <visual>
+    <headlight ambient=".5 .5 .5" diffuse=".4 .4 .4" specular="0.1 0.1 0.1"/>
+    <scale contactwidth=".02" contactheight=".5" forcewidth=".02"/>
+  </visual>
+
+  <option timestep="0.002" iterations="50" solver="Newton" tolerance="1e-10"/>
+  <statistic center="0 0 0.1" extent="0.6" meansize="0.02"/>
+
+  <default>
+    <geom friction="0.6" solimp="0 0.95 0.01"/>
+  </default>
+
+  <worldbody>
+    <light pos="0 0 1" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="2 2 .05" material="grid"/>
+
+    <!-- The eFlesh pad: a static body carrying the SDF geom and the sensor
+         site. The site frame is the rigid magnetometer board. -->
+    <body name="pad" pos="0 0 0.04">
+      <!-- alpha<1 on the geom rgba makes the flesh transparent so the taxel
+           arrows are visible. Soft contact (solref/solimp) so the rigid SDF box
+           behaves like a compliant flesh instead of deep-penetrating. -->
+      <geom name="flesh" type="sdf" mesh="flesh" rgba=".9 .75 .7 .3"
+            friction="0.6 0.005 0.0001" solref="0.02 1" solimp="0.6 0.9 0.01">
+        <plugin instance="flesh"/>
+      </geom>
+      <!-- Sensor frame (the magnetometer board). rgba alpha 0 hides the site
+           marker; the site is still used by the sensor. -->
+      <site name="eflesh" pos="0 0 0.04" size="0.01" rgba="1 1 0 0"/>
+    </body>
+
+    <!-- A sphere pressed into the flesh. -->
+    <body name="ball" pos="-0.06 0 0.3">
+      <freejoint/>
+      <geom type="sphere" size="0.04" mass="0.3" rgba=".2 .4 .9 1"/>
+    </body>
+
+    <!-- A small box dropped onto the flesh to make several contacts. It is a
+         plain indenter -- it must NOT reference the eFlesh plugin. -->
+    <body name="cube" pos="0.07 0.03 0.35" euler="20 15 0">
+      <freejoint/>
+      <geom type="box" size="0.03 0.03 0.03" mass="0.2" rgba=".2 .8 .3 1"/>
+    </body>
+  </worldbody>
+
+  <sensor>
+    <!-- Same instance as the geom above: one plugin, two capabilities. -->
+    <plugin name="eflesh" instance="flesh" objtype="site" objname="eflesh"/>
+  </sensor>
+</mujoco>

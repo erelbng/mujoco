@@ -1,0 +1,64 @@
+<mujoco model="eflesh sphere test">
+  <compiler autolimits="true"/>
+
+  <extension>
+    <!-- A spherical eFlesh: shape=1, size_x = radius. One instance is shared by
+         the <mesh>/<geom> (SDF) and the <sensor> (tactile). -->
+    <plugin plugin="mujoco.sdf.eflesh">
+      <instance name="flesh">
+        <config key="shape" value="1"/>     <!-- 0 = box, 1 = sphere -->
+        <config key="size_x" value="0.1"/>  <!-- radius -->
+        <config key="e_module" value="500"/>
+        <config key="nx" value="16"/>       <!-- longitude taxels -->
+        <config key="ny" value="8"/>        <!-- latitude taxels -->
+        <config key="viz" value="1"/>
+      </instance>
+    </plugin>
+  </extension>
+
+  <asset>
+    <mesh name="flesh"><plugin instance="flesh"/></mesh>
+    <texture name="grid" type="2d" builtin="checker" rgb1=".1 .2 .3" rgb2=".2 .3 .4"
+             width="300" height="300" mark="edge" markrgb=".2 .3 .4"/>
+    <material name="grid" texture="grid" texrepeat="2 2" texuniform="true"/>
+  </asset>
+
+  <visual>
+    <headlight ambient=".5 .5 .5" diffuse=".4 .4 .4" specular="0.1 0.1 0.1"/>
+    <scale contactwidth=".01" contactheight=".3" forcewidth=".005"/>
+  </visual>
+
+  <option timestep="0.002" iterations="50" solver="Newton" tolerance="1e-10"/>
+  <statistic center="0 0 0.3" extent="0.5" meansize="0.02"/>
+
+  <worldbody>
+    <light pos="0 0 1" dir="0 0 -1"/>
+    <geom name="floor" type="plane" size="2 2 .05" material="grid"/>
+
+    <!-- The spherical eFlesh (static), with the sensor site at its center.
+         Transparent + soft contact so taxels are visible and indenters don't
+         deep-penetrate. -->
+    <body name="flesh_body" pos="0 0 0.3">
+      <geom name="flesh" type="sdf" mesh="flesh" rgba=".9 .55 .5 .3"
+            friction="0.6 0.005 0.0001" solref="0.02 1" solimp="0.6 0.9 0.01">
+        <plugin instance="flesh"/>
+      </geom>
+      <site name="eflesh" pos="0 0 0"/>
+    </body>
+
+    <!-- Two indenters on vertical slides press the upper hemisphere at two
+         different latitudes (north pole and off-pole). -->
+    <body name="poke1" pos="0 0 0.55">
+      <joint type="slide" axis="0 0 1" damping="1"/>
+      <geom type="sphere" size="0.02" mass="0.3" rgba=".2 .4 .9 1"/>
+    </body>
+    <body name="poke2" pos="0.055 0 0.55">
+      <joint type="slide" axis="0 0 1" damping="1"/>
+      <geom type="sphere" size="0.02" mass="0.3" rgba=".2 .8 .3 1"/>
+    </body>
+  </worldbody>
+
+  <sensor>
+    <plugin name="eflesh" instance="flesh" objtype="site" objname="eflesh"/>
+  </sensor>
+</mujoco>
